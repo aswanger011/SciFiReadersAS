@@ -3,19 +3,22 @@ Model Context Protocol server for SciFiReaders.
 
 The server intentionally exposes a single tool:
 ``read_file``. It automatically selects the best reader from the package's
-registered readers, executes that reader, and returns the extracted data,
-metadata, and dimension information as JSON-friendly dictionaries.
+registered readers, executes that reader, converts any returned sidpy datasets
+into a NeXus-compatible HDF5 file, and returns the generated file path.
 """
 
 from __future__ import annotations
 
 import importlib
+import re
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Sequence
+from typing import Any, Dict, Mapping, Sequence
 from warnings import warn
 
+import h5py
 import numpy as np
+from sidpy import sidpy_to_nexus_hdf5
 
 try:  # pragma: no cover - optional runtime dependency
     from mcp.server.fastmcp import FastMCP
@@ -143,6 +146,74 @@ def _dataset_payload(dataset: Any) -> Dict[str, Any]:
     }
 
 
+def _flatten_dataset_items(value: Any, prefix: str = "Channel") -> list[tuple[str, Any]]:
+    """Collect dataset-like objects from nested reader output."""
+    items: list[tuple[str, Any]] = []
+
+    if _is_dataset_like(value):
+        items.append((prefix, value))
+        return items
+
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            child_prefix = str(key) if str(key).strip() else prefix
+            items.extend(_flatten_dataset_items(item, child_prefix))
+        return items
+
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            items.extend(_flatten_dataset_items(item, f"{prefix}_{index:03d}"))
+        return items
+
+    return items
+
+
+def _sanitize_hdf5_name(name: str, fallback: str) -> str:
+    """Normalize names so they are safe and predictable in HDF5 paths."""
+    cleaned = re.sub(r"[^0-9A-Za-z_]+", "_", str(name).strip()).strip("_")
+    return cleaned or fallback
+
+
+def _output_hdf5_path(file_path: str) -> str:
+    """Return the generated NeXus HDF5 path for the provided source file."""
+    source = Path(file_path)
+    return str(source.with_suffix(source.suffix + ".nxs.h5"))
+
+
+def _write_datasets_to_nexus(file_path: str, datasets: Sequence[tuple[str, Any]]) -> str:
+    """Persist one or more sidpy datasets into a NeXus HDF5 file."""
+    if not datasets:
+        raise TypeError("The selected reader did not return any sidpy.Dataset objects to export.")
+
+    output_path = _output_hdf5_path(file_path)
+
+    with h5py.File(output_path, "w") as h5_file:
+        used_entry_names: set[str] = set()
+        default_entry_name = None
+
+        for index, (name, dataset) in enumerate(datasets):
+            entry_name = _sanitize_hdf5_name(name, f"entry_{index:03d}")
+            if entry_name in used_entry_names:
+                entry_name = f"{entry_name}_{index:03d}"
+            used_entry_names.add(entry_name)
+
+            signal_path = sidpy_to_nexus_hdf5(
+                dataset,
+                h5_file,
+                entry_name=entry_name,
+                nxdata_name="data",
+                signal_name="data",
+            )
+            if default_entry_name is None:
+                default_entry_name = signal_path.parent.parent.name.lstrip("/")
+
+        if default_entry_name is not None:
+            h5_file.attrs["default"] = default_entry_name
+        h5_file.flush()
+
+    return output_path
+
+
 def _serialize_result(result: Any) -> Any:
     """Recursively serialize reader output."""
     if _is_dataset_like(result):
@@ -198,26 +269,18 @@ def _select_reader(file_path: str) -> tuple[type, list[Dict[str, Any]]]:
 
 def read_file(file_path: str) -> Dict[str, Any]:
     """
-    Read a file with the appropriate SciFiReaders reader and return all data.
+    Read a file with the appropriate SciFiReaders reader and export the result.
 
     The payload includes:
     - ``available_readers``: all registered readers in the package
     - ``matched_readers``: readers that reported they could read the file
     - ``selected_reader``: the reader that was actually used
-    - ``datasets``: one entry per returned sidpy.Dataset or reader output item
+    - ``output_file_path``: generated NeXus HDF5 path containing exported datasets
     """
     reader_cls, matched_readers = _select_reader(file_path)
     extracted = reader_cls(file_path).read()
-    serialized = _serialize_result(extracted)
-
-    if isinstance(serialized, list):
-        datasets = {f"Channel_{index:03d}": item for index, item in enumerate(serialized)}
-    elif _looks_like_dataset_payload(serialized):
-        datasets = {"Channel_000": serialized}
-    elif isinstance(serialized, dict):
-        datasets = serialized
-    else:
-        datasets = {"Channel_000": serialized}
+    datasets = _flatten_dataset_items(extracted)
+    output_file_path = _write_datasets_to_nexus(file_path, datasets)
 
     return {
         "file_path": file_path,
@@ -225,7 +288,7 @@ def read_file(file_path: str) -> Dict[str, Any]:
         "matched_readers": matched_readers,
         "selected_reader": _reader_summary(reader_cls),
         "dataset_count": len(datasets),
-        "datasets": datasets,
+        "output_file_path": output_file_path,
     }
 
 

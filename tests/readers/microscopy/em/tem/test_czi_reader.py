@@ -6,6 +6,8 @@ part of SciFiReaders a pycroscopy package
 import sys
 import sidpy
 import numpy as np
+import urllib.error
+import urllib.parse
 import urllib.request
 import os
 import unittest
@@ -21,9 +23,15 @@ class TestCZI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Download test file once for the entire test class."""
-        cls.file_name = 'stains_first_1.1.czi'
+        cls.file_name = 'stains first_1.1.czi'
         if not os.path.exists(cls.file_name):
-            urllib.request.urlretrieve(data_path + cls.file_name, cls.file_name)
+            try:
+                remote_name = urllib.parse.quote(cls.file_name)
+                urllib.request.urlretrieve(data_path + remote_name, cls.file_name)
+            except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+                raise unittest.SkipTest(
+                    f"Test CZI dataset is unavailable from {data_path + remote_name}: {exc}"
+                ) from exc
 
     def test_czi_file(self):
         reader = SciFiReaders.CZIReader(self.file_name)

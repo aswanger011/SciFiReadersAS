@@ -67,10 +67,12 @@ class TestMCPExport(unittest.TestCase):
                 "available_readers",
                 return_value=[{"name": "DummyReader", "module": "tests", "doc": ""}],
             ):
-                payload = scifireaders_mcp.read_file(raw_path)
+                payload = scifireaders_mcp.read_file(raw_path, return_mode="file")
 
             self.assertEqual(payload["file_path"], raw_path)
+            self.assertEqual(payload["return_mode"], "file")
             self.assertEqual(payload["dataset_count"], 2)
+            self.assertNotIn("datasets", payload)
             self.assertTrue(payload["output_file_path"].endswith(".dm4.nxs.h5"))
             self.assertTrue(os.path.exists(payload["output_file_path"]))
 
@@ -86,6 +88,63 @@ class TestMCPExport(unittest.TestCase):
                     h5_file["Channel_001/data/data"][()],
                     np.arange(6, 12).reshape(2, 3),
                 )
+
+    def test_read_file_returns_inline_datasets(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            raw_path = os.path.join(tmp_dir, "sample.dm4")
+            with open(raw_path, "wb") as handle:
+                handle.write(b"placeholder")
+
+            with mock.patch.object(
+                scifireaders_mcp,
+                "_select_reader",
+                return_value=(DummyReader, [{"name": "DummyReader", "module": "tests", "doc": ""}]),
+            ), mock.patch.object(
+                scifireaders_mcp,
+                "available_readers",
+                return_value=[{"name": "DummyReader", "module": "tests", "doc": ""}],
+            ):
+                payload = scifireaders_mcp.read_file(raw_path, return_mode="data")
+
+            self.assertEqual(payload["return_mode"], "data")
+            self.assertEqual(payload["dataset_count"], 2)
+            self.assertNotIn("output_file_path", payload)
+            self.assertIn("datasets", payload)
+            self.assertEqual(sorted(payload["datasets"].keys()), ["Channel_000", "Channel_001"])
+            np.testing.assert_allclose(
+                payload["datasets"]["Channel_000"]["data"],
+                np.arange(6).reshape(2, 3),
+            )
+            np.testing.assert_allclose(
+                payload["datasets"]["Channel_001"]["data"],
+                np.arange(6, 12).reshape(2, 3),
+            )
+
+    def test_read_file_returns_both_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            raw_path = os.path.join(tmp_dir, "sample.dm4")
+            with open(raw_path, "wb") as handle:
+                handle.write(b"placeholder")
+
+            with mock.patch.object(
+                scifireaders_mcp,
+                "_select_reader",
+                return_value=(DummyReader, [{"name": "DummyReader", "module": "tests", "doc": ""}]),
+            ), mock.patch.object(
+                scifireaders_mcp,
+                "available_readers",
+                return_value=[{"name": "DummyReader", "module": "tests", "doc": ""}],
+            ):
+                payload = scifireaders_mcp.read_file(raw_path, return_mode="both")
+
+            self.assertEqual(payload["return_mode"], "both")
+            self.assertIn("datasets", payload)
+            self.assertIn("output_file_path", payload)
+            self.assertTrue(os.path.exists(payload["output_file_path"]))
+
+    def test_read_file_rejects_invalid_return_mode(self):
+        with self.assertRaises(ValueError):
+            scifireaders_mcp.read_file("sample.dm4", return_mode="invalid")
 
 
 if __name__ == "__main__":

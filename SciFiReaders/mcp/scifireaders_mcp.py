@@ -3,8 +3,8 @@ Model Context Protocol server for SciFiReaders.
 
 The server intentionally exposes a single tool:
 ``read_file``. It automatically selects the best reader from the package's
-registered readers, executes that reader, converts any returned sidpy datasets
-into a NeXus-compatible HDF5 file, and returns the generated file path.
+registered readers, executes that reader, and can either return serialized
+dataset content, export it to a NeXus-compatible HDF5 file, or do both.
 """
 
 from __future__ import annotations
@@ -267,29 +267,50 @@ def _select_reader(file_path: str) -> tuple[type, list[Dict[str, Any]]]:
     return matches[-1], [_reader_summary(reader_cls) for reader_cls in matches]
 
 
-def read_file(file_path: str) -> Dict[str, Any]:
+def read_file(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
     """
-    Read a file with the appropriate SciFiReaders reader and export the result.
+    Read a file with the appropriate SciFiReaders reader.
 
     The payload includes:
     - ``available_readers``: all registered readers in the package
     - ``matched_readers``: readers that reported they could read the file
     - ``selected_reader``: the reader that was actually used
     - ``output_file_path``: generated NeXus HDF5 path containing exported datasets
+    - ``datasets``: serialized dataset payloads when inline output is requested
+
+    Parameters
+    ----------
+    file_path : str
+        Source file to read.
+    return_mode : str, optional
+        One of ``"file"``, ``"data"``, or ``"both"``.
     """
+    if return_mode not in {"file", "data", "both"}:
+        raise ValueError("return_mode must be one of: 'file', 'data', 'both'")
+
     reader_cls, matched_readers = _select_reader(file_path)
     extracted = reader_cls(file_path).read()
-    datasets = _flatten_dataset_items(extracted)
-    output_file_path = _write_datasets_to_nexus(file_path, datasets)
+    dataset_items = _flatten_dataset_items(extracted)
 
-    return {
+    payload = {
         "file_path": file_path,
+        "return_mode": return_mode,
         "available_readers": available_readers(),
         "matched_readers": matched_readers,
         "selected_reader": _reader_summary(reader_cls),
-        "dataset_count": len(datasets),
-        "output_file_path": output_file_path,
+        "dataset_count": len(dataset_items),
     }
+
+    if return_mode in {"data", "both"}:
+        payload["datasets"] = {
+            name: _dataset_payload(dataset)
+            for name, dataset in dataset_items
+        }
+
+    if return_mode in {"file", "both"}:
+        payload["output_file_path"] = _write_datasets_to_nexus(file_path, dataset_items)
+
+    return payload
 
 
 def create_mcp_server(server_name: str = "scifireaders") -> Any:
@@ -300,9 +321,9 @@ def create_mcp_server(server_name: str = "scifireaders") -> Any:
     server = FastMCP(server_name)
 
     @server.tool()
-    def read_file_tool(file_path: str) -> Dict[str, Any]:
+    def read_file_tool(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
         """Read a file with the automatically selected SciFiReaders reader."""
-        return read_file(file_path)
+        return read_file(file_path, return_mode=return_mode)
 
     return server
 

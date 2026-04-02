@@ -1,8 +1,8 @@
 SciFiReaders
 ============
 
-.. image:: https://github.com/pycroscopy/SciFiReaders/workflows/build/badge.svg?branch=main
-    :target: https://github.com/pycroscopy/SciFiReaders/actions?query=workflow%3Abuild
+.. image:: https://github.com/pycroscopy/SciFiReaders/actions/workflows/actions.yml/badge.svg?branch=master
+    :target: https://github.com/pycroscopy/SciFiReaders/actions/workflows/actions.yml
     :alt: GitHub Actions
 
 .. image:: https://img.shields.io/pypi/v/SciFiReaders.svg
@@ -21,7 +21,7 @@ SciFiReaders
     :target: http://pepy.tech/project/SciFiReaders
     :alt: Downloads
     
-.. image:: https://codecov.io/gh/pycroscopy/SciFiReaders/branch/main/graph/badge.svg?token=5511SG1YWE
+.. image:: https://codecov.io/gh/pycroscopy/SciFiReaders/branch/master/graph/badge.svg?token=5511SG1YWE
     :target: https://codecov.io/gh/pycroscopy/SciFiReaders
     :alt: Coverage
 

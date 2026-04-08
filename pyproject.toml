@@ -39,7 +39,6 @@ dependencies = [
     "pyUSID",
     "gdown",
     "mrcfile",
-    "aicspylibczi",
     "pycroscopy-gwyfile",
     "scipy >= 1.11"
 ]

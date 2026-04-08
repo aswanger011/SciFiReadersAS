@@ -3,11 +3,15 @@ Author: Sirisha Madugula"""
 
 import numpy as np
 import xml.etree.ElementTree as ET
-from aicspylibczi import CziFile
 import os
 import traceback
 from sidpy.sid import Reader
 import sidpy
+
+try:
+    from aicspylibczi import CziFile
+except ImportError:  # pragma: no cover - optional runtime dependency
+    CziFile = None
 
 class CZIReader(Reader):
     def __init__(self, file_path, *args, **kwargs):
@@ -17,6 +21,11 @@ class CZIReader(Reader):
         """
         Main execution loop for reading CZI and converting to sidpy Datasets.
         """
+        if CziFile is None:  # pragma: no cover - optional runtime dependency
+            raise ImportError(
+                "The 'aicspylibczi' package is required to read CZI files. "
+                "Install it directly or install SciFiReaders with the CZI dependency available."
+            )
         if not os.path.exists(self._input_file_path):
             raise FileNotFoundError(f"No file found at {self._input_file_path}")
         czi = CziFile(self._input_file_path)

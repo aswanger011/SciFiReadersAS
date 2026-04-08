@@ -320,7 +320,11 @@ def create_mcp_server(server_name: str = "scifireaders") -> Any:
 
     server = FastMCP(server_name)
 
-    @server.tool()
+    @server.tool(
+        name="read_file",
+        title="SciFiReaders file reader",
+        description="Read a scientific file with the best available SciFiReaders reader.",
+    )
     def read_file_tool(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
         """Read a file with the automatically selected SciFiReaders reader."""
         return read_file(file_path, return_mode=return_mode)

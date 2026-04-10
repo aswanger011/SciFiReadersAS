@@ -29,3 +29,15 @@ Tools for extracting data and metadata from scientific data files.
 Extracted information are returned as a dictionary of `sidpy.Dataset <https://pycroscopy.github.io/sidpy/_autosummary/sidpy.sid.dataset.Dataset.html#sidpy.sid.dataset.Dataset>`_ objects.
 
 Please see `SciFiReaders documentation website <https://pycroscopy.github.io/SciFiReaders/index.html>`_ for more information.
+
+MCP server
+----------
+
+If you want to run the SciFiReaders Model Context Protocol server directly, install the optional MCP extra and launch the console entrypoint:
+
+.. code-block:: bash
+
+    uv sync --extra mcp
+    uv run scifireaders_mcp.exe
+
+The server runs over stdio and exposes the ``read_file`` tool.

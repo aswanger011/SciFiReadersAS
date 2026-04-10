@@ -51,6 +51,11 @@ image = ["pillow", "tifffile"]
 mcp = ["mcp"]
 test = ["pytest", "hyperspy", "pyUSID", "gdown", "aicspylibczi"]
 
+[project.scripts]
+"scifireaders_mcp.exe" = "SciFiReaders.mcp.scifireaders_mcp:main"
+"scifireaders_mcp" = "SciFiReaders.mcp.scifireaders_mcp:main"
+"scifireaders-mcp" = "SciFiReaders.mcp.scifireaders_mcp:main"
+
 [project.urls]
 Homepage = "https://pycroscopy.github.io/SciFiReaders/about.html"
 

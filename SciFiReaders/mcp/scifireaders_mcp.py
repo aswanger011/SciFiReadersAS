@@ -313,15 +313,41 @@ def read_file(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
     return payload
 
 
+def list_readers() -> list[Dict[str, Any]]:
+    """Return the package's reader registry for discovery and routing."""
+    return available_readers()
+
+
 def create_mcp_server(server_name: str = "scifireaders") -> Any:
-    """Create the MCP server exposing the single file-reading tool."""
+    """Create the MCP server exposing the discovery and file-reading tools."""
     if FastMCP is None:  # pragma: no cover - optional runtime dependency
         raise ImportError("The 'mcp' package is required to create the SciFiReaders MCP server.")
 
     server = FastMCP(server_name)
 
-    @server.tool()
+    @server.tool(
+        name="list_readers",
+        title="SciFiReaders reader list",
+        description="List the SciFiReaders reader classes currently available in this environment.",
+    )
+    def list_readers_tool() -> list[Dict[str, Any]]:
+        return list_readers()
+
+    @server.tool(
+        name="read_file",
+        title="SciFiReaders file reader",
+        description="Read a scientific file with the best available SciFiReaders reader.",
+    )
     def read_file_tool(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
+        """Read a file with the automatically selected SciFiReaders reader."""
+        return read_file(file_path, return_mode=return_mode)
+
+    @server.tool(
+        name="read_scifireaders_file",
+        title="SciFiReaders file reader",
+        description="Read a scientific file with the best available SciFiReaders reader.",
+    )
+    def read_scifireaders_file_tool(file_path: str, return_mode: str = "file") -> Dict[str, Any]:
         """Read a file with the automatically selected SciFiReaders reader."""
         return read_file(file_path, return_mode=return_mode)
 
@@ -348,6 +374,7 @@ __all__ = [
     "AVAILABLE_READERS",
     "available_readers",
     "create_mcp_server",
+    "list_readers",
     "main",
     "read_file",
 ]

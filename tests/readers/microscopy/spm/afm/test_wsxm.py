@@ -31,9 +31,9 @@ data_files = {
 }
 
 #Since we don't have the files yet, I am disabling the tests    
-print('Skipping tests for wsxm reader')
+#print('Skipping tests for wsxm reader')
 
-@unittest.skip("Skipping this test class temporarily")
+#@unittest.skip("Skipping this test class temporarily")
 class TestWSxM(unittest.TestCase):
     downloaded_files = set()
 
@@ -127,7 +127,7 @@ class TestWSxM(unittest.TestCase):
 
 if __name__ == '__main__': 
     #Since we don't have the files yet, I am disabling the tests    
-    print('Skipping tests for wsxm reader')
+    #print('Skipping tests for wsxm reader')
     test = TestWSxM()
     test.test_wsxm_1d_file()
     test.test_wsxm_2d_file()
